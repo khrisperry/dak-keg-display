@@ -23,9 +23,9 @@ jobs:
         #### Modify below here to match your project ####
         file:
           - dak-keg-display-esp32
-          - dak-keg-display-esp32-c3
-          - dak-keg-display-esp32-c6
-          - dak-keg-display-esp32-s3
+#          - dak-keg-display-esp32-c3
+#          - dak-keg-display-esp32-c6
+#          - dak-keg-display-esp32-s3
         #### Modify above here to match your project ####
 
         esphome-version:
