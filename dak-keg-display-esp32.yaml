@@ -3,8 +3,7 @@ substitutions:
   friendly_name: "Dak Keg Display"
   project_name: "Dak Enterprises.Dak Keg Display"
   project_version: "0.0.1"
-  #Enter Scale BLE Mac Address Here
-  ble_server_mac: "FF:FF:FF:FF:FF:FF" 
+
   
 esp32:
   board: esp32dev
