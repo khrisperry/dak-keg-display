@@ -9,7 +9,7 @@ substitutions:
 esp32:
   board: esp32dev
   framework:
-    type: esp-idf
+    type: arduino
 
 packages:
   basescale: !include common/ble_client_base.yaml
