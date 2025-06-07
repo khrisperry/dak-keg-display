@@ -4,7 +4,6 @@ substitutions:
   project_name: "Dak Enterprises.Dak Keg Display"
   project_version: "0.0.1"
 
-  
 esp32:
   board: esp32dev
   framework:
