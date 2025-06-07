@@ -8,3 +8,6 @@ esp32:
   board: esp32dev
   framework:
     type: esp-idf
+
+packages:
+  basescale: !include common/ble_client_base.yaml
