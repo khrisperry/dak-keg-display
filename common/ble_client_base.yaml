@@ -1,5 +1,5 @@
 substitutions:
-  ble_mac_addr: "E8:06:90:95:98:6A"
+  ble_mac_addr: ${ble_server_mac}
 
 esphome:
   name:  ${name}
