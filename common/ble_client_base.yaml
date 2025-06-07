@@ -1,1 +1,150 @@
+substitutions:
+  ble_mac_addr: "E8:06:90:95:98:6A"
+
+esphome:
+  name:  ${name}
+  friendly_name: ${friendly_name}
+  # Automatically add the mac address to the name
+  # so you can use a single firmware for all devices
+  name_add_mac_suffix: true
+  project:
+    name: ${project_name}
+    version: ${project_version} 
+
+# Enable logging
+logger:
+
+# API is a requirement of the dashboard import.
+api:
+
+# OTA is required for Over-the-Air updating
+ota:
+  - platform: esphome
+
+# In combination with the `ap` this allows the user
+# to provision wifi credentials to the device.
+captive_portal:
+
+font:
+  - file: 'Comic Sans MS.ttf'
+    id: font1
+    size: 14
+  - file: 'Comic Sans MS.ttf'
+    id: CS30
+    size: 30
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+
+globals:
+  - id: last_update_request_time
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 5s
+    then:
+      - lambda: |-
+          if ((millis() - id(last_update_request_time)) > 15000 && id(last_update_request_time) != 0) {
+            id(last_update_request_time) = 0;
+            ESP_LOGD("display_update", "Updating e-ink display due to recent sensor change...");
+            id(my_display).update();
+          }
+
+ble_client:
+  - mac_address: ${ble_mac_addr}  # Your server’s MAC address
+    id: keg_ble_server
+    auto_connect: true
+
+sensor:
+  - platform: ble_client
+    ble_client_id: keg_ble_server
+    id: est_beers
+    name: "Estimated Beers"
+    type: characteristic
+    service_uuid: 5b0be147-b4d2-435c-a6b4-0cf09c349393
+    characteristic_uuid: 547be5be-dddc-435a-82c9-2d68e26c507c
+    update_interval: 30s
+    filters:
+      - delta: 1
+    on_value:
+      then:
+        - lambda: 'id(last_update_request_time) = millis();'
+    notify: false
+    lambda: |-
+      std::string str(x.begin(), x.end());
+      return atof(str.c_str());
+
+  - platform: ble_client
+    ble_client_id: keg_ble_server
+    id: est_keg_weight
+    name: "Estimated Keg Weight"
+    type: characteristic
+    service_uuid: 5b0be147-b4d2-435c-a6b4-0cf09c349393
+    characteristic_uuid: 64bcd260-d3c2-40b6-85c2-438d3e07c042
+    update_interval: 30s
+    filters:
+      - delta: 0.25
+    on_value:
+      then:
+        - lambda: 'id(last_update_request_time) = millis();'
+    notify: false
+    lambda: |-
+      std::string str(x.begin(), x.end());
+      return atof(str.c_str());
+
+  - platform: ble_client
+    ble_client_id: keg_ble_server
+    id: cal_weight
+    name: "Calibrated Weight"
+    type: characteristic
+    service_uuid: 5b0be147-b4d2-435c-a6b4-0cf09c349393
+    characteristic_uuid: 92a3e3b0-47a5-441c-974e-1f4ffbc6d371
+    update_interval: 30s
+    filters:
+      - delta: 0.25
+    on_value:
+      then:
+        - lambda: 'id(last_update_request_time) = millis();'
+    notify: false
+    lambda: |-
+      std::string str(x.begin(), x.end());
+      return atof(str.c_str());
+
+display:
+  - platform: waveshare_epaper
+    id: my_display
+    model: 2.13in-ttgo-b74
+    cs_pin: GPIO5
+    dc_pin: GPIO17
+    reset_pin: GPIO16
+    busy_pin: GPIO4
+    rotation: 270
+    update_interval: never
+    lambda: |-
+      // Resolution: 212x104
+      const int screen_width = 212;
+
+      // Beers Remaining Label
+      std::string label = "Beers Remaining";
+      int label_x = (screen_width - label.length() * 14) / 2;  // Adjusted width est: 14px/char for CS30
+      it.printf(label_x, 5, id(CS30), "%s", label.c_str());
+
+      // Beers Value
+      char beers_val[8];
+      snprintf(beers_val, sizeof(beers_val), "%.0f", id(est_beers).state);
+      int value_x = ((screen_width - strlen(beers_val) * 18) / 2) + 15;  // ~18px per char in CS30
+      it.printf(value_x, 40, id(CS30), "%s", beers_val);
+
+      // Bottom left: Scale
+      it.printf(5, 100, id(font1), "Scale: %.1f lb", id(cal_weight).state);
+
+      // Bottom right: Keg
+      char keg_str[16];
+      snprintf(keg_str, sizeof(keg_str), "Keg: %.1f lb", id(est_keg_weight).state);
+      int keg_text_width = strlen(keg_str) * 7;  // ~7px per char
+      it.printf(screen_width - keg_text_width + 15, 100, id(font1), "%s", keg_str);
+
 
