@@ -15,9 +15,9 @@ jobs:
       #### Modify below here to match your project ####
       files: |
         dak-keg-display-esp32.factory.yaml
-#        dak-keg-display-esp32-c3.factory.yaml
-#        dak-keg-display-esp32-c6.factory.yaml
-#        dak-keg-display-esp32-s3.factory.yaml
+        dak-keg-display-esp32-c3.factory.yaml
+        dak-keg-display-esp32-c6.factory.yaml
+        dak-keg-display-esp32-s3.factory.yaml
       esphome-version: 2025.4.0
       combined-name: dak-keg-display
       #### Modify above here to match your project ####
