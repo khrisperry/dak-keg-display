@@ -126,25 +126,25 @@ display:
     lambda: |-
       // Resolution: 212x104
       const int screen_width = 212;
+      const int shift_x = 12;
 
       // Beers Remaining Label
       std::string label = "Beers Remaining";
-      int label_x = (screen_width - label.length() * 14) / 2;  // Adjusted width est: 14px/char for CS30
+      int label_x = (screen_width - label.length() * 14) / 2 + shift_x;
       it.printf(label_x, 5, id(CS30), "%s", label.c_str());
 
       // Beers Value
       char beers_val[8];
       snprintf(beers_val, sizeof(beers_val), "%.0f", id(est_beers).state);
-      int value_x = ((screen_width - strlen(beers_val) * 18) / 2) + 15;  // ~18px per char in CS30
+      int value_x = ((screen_width - strlen(beers_val) * 18) / 2) + shift_x + 10;  // original +10 visual fudge
       it.printf(value_x, 40, id(CS30), "%s", beers_val);
 
       // Bottom left: Scale
-      it.printf(5, 100, id(font1), "Scale: %.1f lb", id(cal_weight).state);
+      it.printf(5 + shift_x, 100, id(font1), "Scale: %.1f lb", id(cal_weight).state);
 
       // Bottom right: Keg
       char keg_str[16];
       snprintf(keg_str, sizeof(keg_str), "Keg: %.1f lb", id(est_keg_weight).state);
-      int keg_text_width = strlen(keg_str) * 7;  // ~7px per char
-      it.printf(screen_width - keg_text_width + 15, 100, id(font1), "%s", keg_str);
-
+      int keg_text_width = strlen(keg_str) * 7;
+      it.printf(screen_width - keg_text_width + shift_x + 10, 100, id(font1), "%s", keg_str);
 
