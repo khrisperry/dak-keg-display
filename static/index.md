@@ -3,7 +3,7 @@
 BLE Scale Display for LilyGo T5 V2.3.1
 
 Can be found here 
-https://lilygo.cc/products/t5-v2-3-1?srsltid=AfmBOorOG4khaopqfTtFKFQK0JRjy3puUSNOw27Qq_EvMc3OQl5YBcBn
+https://tinyurl.com/eInk-Diplay
 
 # Installation
 
