@@ -8,7 +8,7 @@ substitutions:
 esp32:
   board: esp32-c6-devkitm-1
   framework:
-    type: esp-idf
+    type: arduino
 
 packages:
   basescale: !include common/ble_client_base.yaml
