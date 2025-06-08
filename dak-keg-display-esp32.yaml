@@ -3,7 +3,7 @@ substitutions:
   friendly_name: "Dak Keg Display"
   project_name: "Dak Enterprises.Dak Keg Display"
   project_version: "0.0.1"
-  ble_server_mac: "FF:FF:FF:FF:FF:FF" #udpate with Scale BLE MAC Address
+  ble_server_mac: "FF:FF:FF:FF:FF:FF" # **** Udpate with Scale BLE MAC Address ****
 
 esp32:
   board: esp32dev
