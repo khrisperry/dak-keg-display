@@ -1,0 +1,7 @@
+substitutions:
+  name: dak-keg-display
+  friendly_name: Dak Keg Display
+  ble_server_mac: "FF:FF:FF:FF:FF:FF"  # Change this in your code
+
+packages:
+  dak-keg-display: github://khrisperry/dak-keg-display/dak-keg-display-esp32.yaml@main
