@@ -38,14 +38,6 @@ spi:
   mosi_pin: GPIO23
 
 globals:
-  - id: last_update_request_time
-    type: unsigned long
-    restore_value: no
-    initial_value: '0'
-  - id: last_battery_displayed
-    type: int
-    restore_value: no
-    initial_value: '0'
   - id: display_ready
     type: bool
     restore_value: no
@@ -55,34 +47,29 @@ globals:
     restore_value: no
     initial_value: 'true'
 
-script:
-  - id: request_display_refresh
-    then:
-      - lambda: 'id(last_update_request_time) = millis();'
-
-interval:
-  - interval: 5s
-    then:
-      - lambda: |-
-          if ((millis() - id(last_update_request_time)) > 15000 && id(last_update_request_time) != 0) {
-            id(last_update_request_time) = 0;
-            ESP_LOGD("display_update", "Updating e-ink display due to recent BLE notify change...");
-            id(my_display).update();
-          }
-
 ble_client:
   - mac_address: ${ble_mac_addr}
     id: keg_ble_server
     auto_connect: true
-    on_connect: 
+    on_connect:
       then:
-        - logger.log: "BLE Server connected — updating display"
+        - logger.log: "BLE Server connected — initial display update"
         - lambda: |-
             id(display_ready) = true;
             id(show_boot_screen) = false;
-        - component.update: my_display 
+        - component.update: my_display
+    on_disconnect:
+      then:
+        - logger.log: "BLE Server **disconnected** — showing disconnect screen"
+        - lambda: |-
+            id(display_ready)   = true;   // keep main layout active
+            id(show_boot_screen)= false;  // boot screen stays off
+        - component.update: my_display
 
 sensor:
+  # -------------------------------------------------------------
+  # Estimated Beers  (triggers display refresh)
+  # -------------------------------------------------------------
   - platform: ble_client
     ble_client_id: keg_ble_server
     id: est_beers
@@ -96,12 +83,17 @@ sensor:
         - logger.log:
             level: DEBUG
             format: "BLE Notify: Estimated Beers received"
-        - lambda: 'id(display_ready) = true;'
-        - script.execute: request_display_refresh
+        - lambda: |-
+            id(display_ready) = true;
+            id(show_boot_screen) = false;
+        - component.update: my_display
     lambda: |-
       std::string str(x.begin(), x.end());
       return atof(str.c_str());
 
+  # -------------------------------------------------------------
+  # Estimated Keg Weight  (no display refresh needed)
+  # -------------------------------------------------------------
   - platform: ble_client
     ble_client_id: keg_ble_server
     id: est_keg_weight
@@ -115,12 +107,13 @@ sensor:
         - logger.log:
             level: DEBUG
             format: "BLE Notify: Estimated Keg Weight received"
-        - lambda: 'id(display_ready) = true;'
-        - script.execute: request_display_refresh
     lambda: |-
       std::string str(x.begin(), x.end());
       return atof(str.c_str());
 
+  # -------------------------------------------------------------
+  # Calibrated Weight  (no display refresh needed)
+  # -------------------------------------------------------------
   - platform: ble_client
     ble_client_id: keg_ble_server
     id: cal_weight
@@ -134,51 +127,9 @@ sensor:
         - logger.log:
             level: DEBUG
             format: "BLE Notify: Calibrated Weight received"
-        - lambda: |-
-            id(display_ready) = true;
-            id(show_boot_screen) = false;
-        - script.execute: request_display_refresh
     lambda: |-
       std::string str(x.begin(), x.end());
       return atof(str.c_str());
-
-  - platform: adc
-    pin: 35
-    name: "Battery Voltage"
-    id: battery_voltage
-    attenuation: auto
-    update_interval: 60s
-
-  - platform: template
-    name: "Battery Percent"
-    id: battery_percent
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    update_interval: 60s
-    lambda: |-
-      float v = id(battery_voltage).state;
-      float percent = (v - 3.2f) / (4.2f - 3.2f) * 100.0f;
-      percent = clamp(percent, 0.0f, 100.0f);
-      return percent;
-    on_value:
-      then:
-        - lambda: |-
-            int current = (int) round(x);
-            int previous = id(last_battery_displayed);
-            if (abs(current - previous) >= 5) {
-              id(last_battery_displayed) = current;
-              ESP_LOGD("battery", "Battery change >= 5%%, refreshing display");
-              id(my_display).update();
-            }
-
-binary_sensor:
-  - platform: gpio
-    pin:
-      number: GPIO34
-      mode: INPUT
-      inverted: true
-    id: is_charging
-    name: "Battery Charging"
 
 display:
   - platform: waveshare_epaper
@@ -194,11 +145,11 @@ display:
       const int screen_width = 212;
       const int shift_x = 12;
 
+      // Boot screen while waiting for first data
       if (id(show_boot_screen)) {
-        // Show initial connection screen
         std::string boot_msg = "Connecting BLE Server";
-        int x = (screen_width - boot_msg.length() * 7) / 2 + shift_x;
-        it.printf(x, 50, id(font1), "%s", boot_msg.c_str());
+        int x0 = (screen_width - boot_msg.length() * 7) / 2 + shift_x;
+        it.printf(x0, 50, id(font1), "%s", boot_msg.c_str());
         std::string boot_msg2 = "Waiting for Initial Update";
         int x1 = (screen_width - boot_msg2.length() * 7) / 2 + shift_x;
         it.printf(x1 + 5, 70, id(font1), "%s", boot_msg2.c_str());
@@ -208,22 +159,7 @@ display:
         return;
       }
 
-      // Battery Display
-      int battery_x = screen_width - 70;
-      int battery_y = 5;
-      float vbat = id(battery_voltage).state;
-
-      if (vbat >= 4.35f || vbat <= 3.0f) {
-        it.printf(battery_x, battery_y, id(font1), "USB Power");
-      } else {
-        int percent = (int) id(battery_percent).state;
-        if (id(is_charging).state) {
-          it.printf(battery_x, battery_y, id(font1), "Batt: %d%%+", percent);
-        } else {
-          it.printf(battery_x, battery_y, id(font1), "Batt: %d%%", percent);
-        }
-      }
-
+      // Secondary wait screen if not ready
       if (!id(display_ready)) {
         std::string msg = "Connecting BLE Scale";
         int msg_x = (screen_width - msg.length() * 7) / 2;
@@ -231,33 +167,37 @@ display:
         return;
       }
 
+      // If BLE disconnects later
       if (!id(keg_ble_server).connected()) {
         std::string line1 = "Scale";
         std::string line2 = "Disconnected";
         int line1_x = (screen_width - line1.length() * 14) / 2 + shift_x;
         int line2_x = (screen_width - line2.length() * 14) / 2 + shift_x;
-
         it.printf(line1_x, 20, id(CS30), "%s", line1.c_str());
         it.printf(line2_x, 55, id(CS30), "%s", line2.c_str());
-
         std::string mac = "${ble_mac_addr}";
         int mac_x = (screen_width - mac.length() * 7) / 2;
         it.printf(mac_x + 12, 100, id(font1), "%s", mac.c_str());
-      } else {
-        std::string label = "Beers Remaining";
-        int label_x = (screen_width - label.length() * 14) / 2 + shift_x;
-        it.printf(label_x, 20, id(CS30), "%s", label.c_str());
-
-        char beers_val[8];
-        snprintf(beers_val, sizeof(beers_val), "%.0f", id(est_beers).state);
-        int value_x = ((screen_width - strlen(beers_val) * 18) / 2) + shift_x + 10;
-        it.printf(value_x, 55, id(CS30), "%s", beers_val);
-
-        it.printf(5 + shift_x, 100, id(font1), "Scale: %.1f lb", id(cal_weight).state);
-
-        char keg_str[16];
-        snprintf(keg_str, sizeof(keg_str), "Keg: %.1f lb", id(est_keg_weight).state);
-        int keg_text_width = strlen(keg_str) * 7;
-        it.printf(screen_width - keg_text_width + shift_x + 10, 100, id(font1), "%s", keg_str);
+        return;
       }
 
+      // --- Normal display ---
+      std::string label = "Beers Remaining";
+      int label_x = (screen_width - label.length() * 14) / 2 + shift_x;
+      it.printf(label_x, 20, id(CS30), "%s", label.c_str());
+
+      char beers_val[8];
+      snprintf(beers_val, sizeof(beers_val), "%.0f", id(est_beers).state);
+      int value_x =
+          ((screen_width - strlen(beers_val) * 18) / 2) + shift_x + 10;
+      it.printf(value_x, 55, id(CS30), "%s", beers_val);
+
+      it.printf(5 + shift_x, 100, id(font1), "Scale: %.1f lb",
+                id(cal_weight).state);
+
+      char keg_str[16];
+      snprintf(keg_str, sizeof(keg_str), "Keg: %.1f lb",
+               id(est_keg_weight).state);
+      int keg_text_width = strlen(keg_str) * 7;
+      it.printf(screen_width - keg_text_width + shift_x + 10, 100, id(font1),
+                "%s", keg_str);
